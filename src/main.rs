@@ -26,6 +26,8 @@ struct GameState {
     player1: Entity,
     player2: Entity,
     ball: Entity,
+    player1_score: u8,
+    player2_score: u8,
 }
 impl GameState {
     // Let's initialize the players/balls position, texture and speed
@@ -51,9 +53,16 @@ impl GameState {
         let ball_velocity = Vec2::new(-BALL_SPEED, 0.0);
 
         Ok(GameState {
-            player1: Entity::new(player1_texture, player1_position),
-            player2: Entity::new(player2_texture, player2_position),
-            ball: Entity::with_velocity(ball_texture, ball_position, ball_velocity), // Allow to give a direction to the ball
+            player1: Entity::new("player1".to_string(), player1_texture, player1_position),
+            player2: Entity::new("player2".to_string(), player2_texture, player2_position),
+            ball: Entity::with_velocity(
+                "ball".to_string(),
+                ball_texture,
+                ball_position,
+                ball_velocity,
+            ), // Allow to give a direction to the ball
+            player1_score: 0,
+            player2_score: 0,
         })
     }
 }
@@ -106,7 +115,7 @@ impl State for GameState {
                 -(self.ball.velocity.x + (BALL_ACC * self.ball.velocity.x.signum()));
 
             // Then the ball need to go a bit down or up based of its position in relation to the center of the paddle
-            let offset = (paddle.center().y - self.ball.center().y) / paddle.height();
+            let offset = (paddle.centre().y - self.ball.centre().y) / paddle.height();
             self.ball.velocity.y += PADDLE_SPIN * -offset;
         }
 
@@ -118,12 +127,24 @@ impl State for GameState {
 
         // Then we need a winner
         if self.ball.position.x < 0.0 {
-            window::quit(ctx);
-            println!("Player2 wins !");
+            self.player2_score += 1;
+            self.ball.center();
+            self.ball.velocity = Vec2::new(-BALL_SPEED, 0.0);
         }
         if self.ball.position.x > WINDOW_WIDTH {
+            self.player1_score += 1;
+            self.ball.center();
+            self.ball.velocity = Vec2::new(BALL_SPEED, 0.0);
+        }
+
+        if self.player1_score >= 5 || self.player2_score >= 5 {
+            let winner = if self.player1_score > self.player2_score {
+                &self.player1.name
+            } else {
+                &self.player2.name
+            };
+            println!("{} wins !", winner);
             window::quit(ctx);
-            println!("Player1 wins !");
         }
 
         Ok(())
@@ -132,17 +153,24 @@ impl State for GameState {
 
 // An entity can be a ball or a player. It's defined by its appearance, position and velocity
 struct Entity {
+    name: String,
     texture: Texture,
     position: Vec2<f32>,
     velocity: Vec2<f32>,
 }
 impl Entity {
-    fn new(texture: Texture, position: Vec2<f32>) -> Entity {
-        Entity::with_velocity(texture, position, Vec2::zero())
+    fn new(name: String, texture: Texture, position: Vec2<f32>) -> Entity {
+        Entity::with_velocity(name, texture, position, Vec2::zero())
     }
     // For ball, we need a velocity
-    fn with_velocity(texture: Texture, position: Vec2<f32>, velocity: Vec2<f32>) -> Entity {
+    fn with_velocity(
+        name: String,
+        texture: Texture,
+        position: Vec2<f32>,
+        velocity: Vec2<f32>,
+    ) -> Entity {
         Entity {
+            name,
             texture,
             position,
             velocity,
@@ -164,10 +192,16 @@ impl Entity {
         )
     }
     // The center will help us to calculate the offset on the ball movement
-    fn center(&self) -> Vec2<f32> {
+    fn centre(&self) -> Vec2<f32> {
         Vec2::new(
             self.position.x + (self.width() / 2.0),
             self.position.y + (self.height() / 2.0),
         )
+    }
+    fn center(&mut self) {
+        self.position = Vec2::new(
+            WINDOW_WIDTH / 2.0 - self.texture.width() as f32 / 2.0,
+            WINDOW_HEIGHT / 2.0 - self.texture.height() as f32 / 2.0,
+        );
     }
 }
